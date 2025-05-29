@@ -25,7 +25,12 @@ A collection of useful Blender assets including geometry nodes, materials, and o
 
 ## Usage
 
-1. Clone repo to your `$HOME/Documents/Blender/Assets` or  `~/...`
+1. Clone repo to your:
+
+   ```bash
+    git clone https://github.com/VladimirKobranov/blender-tools.git ~/Documents/Blender/Assets/
+    ```
+
 2. Open Blender
 3. Profit
 
