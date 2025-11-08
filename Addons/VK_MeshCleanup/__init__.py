@@ -1,22 +1,27 @@
 import bpy
 
 bl_info = {
-    "name": "VK Mesh Cleanup Tools",
+    "name": "Mesh Cleanup Tools",
     "author": "Vladimir Kobranov",
-    "version": (1, 0),
-    "blender": (4, 0, 0),
+    "version": (1, 1),
+    "blender": (4, 5, 0),
     "location": "View3D > Sidebar > Mesh Cleanup",
     "description": "Simple tools for cleaning meshes",
     "category": "3D View",
 }
 
 
+# --------------------------------------------------------------
 # Utilities
+# --------------------------------------------------------------
+
 def apply_to_meshes(fn, in_edit=True, select_all=False):
     for obj in bpy.context.selected_objects:
         if obj.type != "MESH":
             continue
+
         bpy.context.view_layer.objects.active = obj
+
         if in_edit:
             bpy.ops.object.mode_set(mode="EDIT")
             if select_all:
@@ -27,64 +32,60 @@ def apply_to_meshes(fn, in_edit=True, select_all=False):
             fn()
 
 
-# Operations
+# --------------------------------------------------------------
+# Cleanup functions
+# --------------------------------------------------------------
+
+def op_clear_sharp():
+    bpy.ops.mesh.mark_sharp(clear=True)
+
+
+def op_merge_vertices():
+    bpy.ops.mesh.remove_doubles(threshold=0.0001)
+    
+
+def op_flat_shading():
+    bpy.ops.mesh.faces_shade_flat()
+
+
+def op_clear_normals():
+    bpy.ops.mesh.customdata_custom_splitnormals_clear()
+
+
+def op_apply_transforms():
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="MEDIAN")
+
+def op_clean_unused_materials():
+    bpy.ops.object.material_slot_remove_unused()
+    
+
+# --------------------------------------------------------------
+# Operation registry
+# --------------------------------------------------------------
+
 operations = [
-    (
-        "clear_sharp",
-        "Clear Sharp Edges",
-        lambda: bpy.ops.mesh.mark_sharp(clear=True),
-        True,
-        True,
-    ),
-    (
-        "merge_vertices",
-        "Merge Vertices",
-        lambda: bpy.ops.mesh.remove_doubles(threshold=0.0001),
-        True,
-        True,
-    ),
-    ("tris_to_quads", "Tris → Quads", lambda: bpy.ops.mesh.tris_to_quads(), True, True),
-    (
-        "flat_shading",
-        "Flat Shading",
-        lambda: bpy.ops.mesh.faces_shade_flat(),
-        True,
-        True,
-    ),
-    (
-        "clear_normals",
-        "Clear Custom Normals",
-        lambda: bpy.ops.mesh.customdata_custom_splitnormals_clear(),
-        True,
-        False,
-    ),
-    (
-        "apply_transforms",
-        "Apply Transforms",
-        lambda: bpy.ops.object.transform_apply(
-            location=True, rotation=True, scale=True
-        ),
-        False,
-        False,
-    ),
-    (
-        "set_origin",
-        "Set Origin to Geometry",
-        lambda: bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="MEDIAN"),
-        False,
-        False,
-    ),
+    ("clear_sharp",      "Clear Sharp Edges",      op_clear_sharp,     True,  True),
+    ("merge_vertices",   "Merge Vertices",         op_merge_vertices,  True,  True),
+    ("flat_shading",     "Flat Shading",           op_flat_shading,    True,  True),
+    ("clear_normals",    "Clear Custom Normals",   op_clear_normals,   True,  False),
+    ("apply_transforms", "Apply Transforms & Centererize Origin", op_apply_transforms, False, False),
+    ("clean_unused_materials", "Clean Unused Material Slots", op_clean_unused_materials, False, False),
 ]
 
-# Dynamic Operators
+
+# --------------------------------------------------------------
+# Dynamic Operator Generation
+# --------------------------------------------------------------
+
 operators = []
+
 for name, label, fn, in_edit, select_all in operations:
 
     def make_exec(fn, in_edit, select_all):
         def execute(self, context):
             apply_to_meshes(fn, in_edit=in_edit, select_all=select_all)
             return {"FINISHED"}
-
         return execute
 
     OT = type(
@@ -99,9 +100,12 @@ for name, label, fn, in_edit, select_all in operations:
     operators.append(OT)
 
 
-# Panel
+# --------------------------------------------------------------
+# UI Panel
+# --------------------------------------------------------------
+
 class VK_PT_CleanupPanel(bpy.types.Panel):
-    bl_idname = "VK_PT_cleanup"
+    bl_idname = "PT_cleanup"
     bl_label = "Mesh Cleanup"
     bl_category = "Mesh Cleanup"
     bl_space_type = "VIEW_3D"
@@ -112,13 +116,16 @@ class VK_PT_CleanupPanel(bpy.types.Panel):
         col = layout.column(align=True)
         col.separator()
         col.label(text="Cleanup for selected objects:")
+
         for name, *_ in operations:
             col.operator(f"vk.clean_{name}")
             col.separator()
-            
 
 
-# Register
+# --------------------------------------------------------------
+# Registration
+# --------------------------------------------------------------
+
 classes = operators + [VK_PT_CleanupPanel]
 
 
